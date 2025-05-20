@@ -114,14 +114,17 @@ export default class Monocle {
   public on(event: MonocleEvents, handler: (detail: any) => void): void {
     if (typeof window === 'undefined') return
 
-    // Ensure script is initialized to create the event target
-    if (!this._eventTarget) this.init().catch(() => {})
+    // Ensure an EventTarget exists and script is initialized
+    if (!this._eventTarget) {
+      this._eventTarget = new EventTarget()
+      this.init().catch(() => {})
+    }
 
     // Wrap handler to extract detail from CustomEvent
     const wrapper: EventListener = (e: Event) => handler((e as CustomEvent).detail)
     const key = `${event}:${handler}`
     this._handlers.set(key, wrapper)
-    this._eventTarget!.addEventListener(event, wrapper)
+    this._eventTarget.addEventListener(event, wrapper)
   }
 
   /**
