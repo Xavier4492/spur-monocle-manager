@@ -33,7 +33,7 @@ export default class Monocle {
   /**
    * Dispatches a custom Monocle event on the internal EventTarget.
    */
-  private _dispatch(event: MonocleEvents, detail: any = null) {
+  private _dispatch(event: MonocleEvents, detail?: any) {
     this._eventTarget?.dispatchEvent(new CustomEvent(event, { detail }))
   }
 
@@ -45,7 +45,7 @@ export default class Monocle {
     // No-op on server-side
     if (typeof window === 'undefined') return Promise.resolve()
     // Return existing promise if already initializing/loaded
-    if (this._ready) return this._ready
+    if (this._ready) return this._ready as Promise<void>
 
     this._eventTarget = new EventTarget()
     const script = document.createElement('script')
@@ -58,7 +58,7 @@ export default class Monocle {
     // Setup global callbacks to forward events
     ;(window as any).monocleSuccessCallback = (data: any) => this._dispatch('monocle-success', data)
     ;(window as any).monocleErrorCallback = (err: any) => this._dispatch('monocle-error', err)
-    ;(window as any).monocleOnloadCallback = () => this._dispatch('monocle-onload')
+    ;(window as any).monocleOnloadCallback = () => this._dispatch('monocle-onload', undefined)
 
     // Create a promise that resolves on load or rejects on error
     this._ready = new Promise((resolve, reject) => {
@@ -69,14 +69,18 @@ export default class Monocle {
       })
       script.addEventListener('error', () => {
         // Cleanup on failure
-        document.head.removeChild(script)
+        try {
+          document.head.removeChild(script)
+        } catch {
+          // ignore if not present
+        }
         this._ready = false
         reject(new Error('[Monocle] Failed to load script'))
       })
       document.head.appendChild(script)
     })
 
-    return this._ready
+    return this._ready as Promise<void>
   }
 
   /**
@@ -88,15 +92,17 @@ export default class Monocle {
     if (typeof window === 'undefined') return Promise.resolve()
     await this.init()
 
+    // Use stored instance or fallback to global
+    const mclInstance = this._monocle || (window as any).MCL
     try {
-      await this._monocle.refresh() // Trigger data refresh
-      const bundle = this._monocle.getBundle()
+      await mclInstance.refresh()
+      const bundle = mclInstance.getBundle()
       if (!bundle) {
         throw new Error('[Monocle] No data returned')
       }
       this._dispatch('monocle-success', bundle)
       return bundle
-    } catch (err) {
+    } catch (err: any) {
       this._dispatch('monocle-error', err)
       throw err
     }
