@@ -2,6 +2,16 @@
 
 All notable changes...
 
+## [1.1.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.0.1...v1.1.0) (2025-05-20)
+
+### Features
+
+* add .eslintignore to exclude dist, coverage, and node_modules ([4914540](https://github.com/Xavier4492/spur-monocle-manager/commit/49145401cb43c7495b5e046d9d4050e51beaa29b))
+
+### Bug Fixes
+
+* clean up .npmrc by removing pnpm-related options ([b7f2711](https://github.com/Xavier4492/spur-monocle-manager/commit/b7f271113400b11d6d0a3344ecfb9f434e77f0d6))
+
 ## [1.0.1](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.0.0...v1.0.1) (2025-05-20)
 
 ### Bug Fixes
