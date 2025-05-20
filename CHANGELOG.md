@@ -2,6 +2,12 @@
 
 All notable changes...
 
+## [1.2.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.1.0...v1.2.0) (2025-05-20)
+
+### Features
+
+* export MonocleEvents type for external usage ([b9043cb](https://github.com/Xavier4492/spur-monocle-manager/commit/b9043cb5102c7f97b535e829140f889759ea7026))
+
 ## [1.1.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.0.1...v1.1.0) (2025-05-20)
 
 ### Features
