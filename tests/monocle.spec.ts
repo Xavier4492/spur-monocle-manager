@@ -184,3 +184,54 @@ describe('Monocle', () => {
     expect((window as any).MCL).toBeUndefined()
   })
 })
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+describe('Server-side fallback', () => {
+  let originalWindow: any
+
+  beforeAll(() => {
+    // Simule un environnement sans window
+    originalWindow = (globalThis as any).window
+    delete (globalThis as any).window
+  })
+  afterAll(() => {
+    // Restaure window
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it('init() resolves immediately when window is undefined', async () => {
+    const m = new Monocle({ token: 't' })
+    await expect(m.init()).resolves.toBeUndefined()
+  })
+
+  it('getBundle() resolves immediately when window is undefined', async () => {
+    const m = new Monocle({ token: 't' })
+    await expect(m.getBundle()).resolves.toBeUndefined()
+  })
+})
+
+describe('init(): idempotence', () => {
+  let fakeScript: any
+
+  beforeEach(() => {
+    // même setup que plus haut pour intercepter createElement
+    document.head.innerHTML = ''
+    fakeScript = { addEventListener: vi.fn(), async: false, defer: false, src: '' }
+    vi.spyOn(document, 'createElement').mockImplementation(() => fakeScript as any)
+    vi.spyOn(document.head, 'appendChild').mockImplementation(() => fakeScript as any)
+    ;(globalThis as any).MCL = { refresh: vi.fn().mockResolvedValue(undefined), getBundle: vi.fn() }
+  })
+
+  it('returns the same promise if called deux fois', async () => {
+    const m = new Monocle({ token: 'xyz' })
+    const p1 = m.init()
+    // Simule la charge du script
+    const loadCall = fakeScript.addEventListener.mock.calls.find(([e]: [string]) => e === 'load')!
+    const loadCb = loadCall[1] as () => void
+    loadCb()
+
+    const p2 = m.init()
+    expect(p2).toBe(p1) // même promesse
+    await expect(p1).resolves.toBeUndefined()
+  })
+})
