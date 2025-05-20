@@ -2,6 +2,12 @@
 
 All notable changes...
 
+## [1.0.1](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.0.0...v1.0.1) (2025-05-20)
+
+### Bug Fixes
+
+* remove 'dist' from assets in semantic-release git configuration ([d28f3c0](https://github.com/Xavier4492/spur-monocle-manager/commit/d28f3c0bcf51f5462fd36a7e848c0d6430fc65b3))
+
 ## 1.0.0 (2025-05-20)
 
 ### Features
