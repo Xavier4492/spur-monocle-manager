@@ -9,12 +9,12 @@
 
 ## Table of Contents
 
-* [Installation](#installation)
-* [Quick Start](#quick-start)
-* [API](#api)
-* [Tests & CI](#tests--ci)
-* [Contributing](#contributing)
-* [License](#license)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [API](#api)
+- [Tests & CI](#tests--ci)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Installation
 
@@ -32,7 +32,7 @@ async function main() {
   await monocle.init()
 
   // Listen for events
-  monocle.on('monocle-success', data => {
+  monocle.on('monocle-success', (data) => {
     console.log('Bundle data:', data)
   })
 
@@ -53,7 +53,7 @@ main().catch(console.error)
 
 Creates a new Monocle loader instance.
 
-* `options.token: string` — Required Monocle authentication token.
+- `options.token: string` — Required Monocle authentication token.
 
 ### `init(): Promise<void>`
 
@@ -77,9 +77,9 @@ Cleans up the injected script, global callbacks, and internal state.
 
 ## Tests & CI
 
-* Unit tests & coverage via [Vitest](https://vitest.dev/)
-* Linting & type-checking using ESLint + TypeScript
-* Automated releases via GitHub Actions + [Semantic Release](https://semantic-release.gitbook.io/)
+- Unit tests & coverage via [Vitest](https://vitest.dev/)
+- Linting & type-checking using ESLint + TypeScript
+- Automated releases via GitHub Actions + [Semantic Release](https://semantic-release.gitbook.io/)
 
 ```bash
 # Install dependencies

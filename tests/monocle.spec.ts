@@ -3,6 +3,7 @@ import Monocle from '../src/index'
 
 const FAKE_URL = 'https://mcl.spur.us/d/mcl.js'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 describe('Monocle', () => {
   let fakeScript: any
   let appendSpy: ReturnType<typeof vi.spyOn>
@@ -27,7 +28,7 @@ describe('Monocle', () => {
     // Spy on appendChild to monitor its call
     appendSpy = vi
       .spyOn<any, any>(document.head, 'appendChild')
-      .mockImplementation(((node: Node) => fakeScript as unknown as Node) as any)
+      .mockImplementation((() => fakeScript as unknown as Node) as any)
 
     // Simulated global MCL object
     ;(globalThis as any).MCL = {
@@ -50,10 +51,10 @@ describe('Monocle', () => {
 
     // Retrieve and trigger the "load" callback
     const loadCall = fakeScript.addEventListener.mock.calls.find(
-      ([event]: [string]) => event === 'load'
+      ([event]: [string]) => event === 'load',
     )!
-    const loadCb = loadCall[1] as Function
-    loadCb()
+    const loadCb = loadCall[1].bind(fakeScript) as (this: HTMLElement, ev: Event) => any
+    loadCb.call(fakeScript, new Event('load'))
 
     await expect(p).resolves.toBeUndefined()
     expect(fakeScript.src).toContain(`${FAKE_URL}?tk=abc`)
@@ -69,21 +70,20 @@ describe('Monocle', () => {
 
     // Simulate the error
     const errCall = fakeScript.addEventListener.mock.calls.find(
-      ([event]: [string]) => event === 'error'
+      ([event]: [string]) => event === 'error',
     )!
-    const errCb = errCall[1] as Function
-    errCb()
+    const errCb = errCall[1] as (this: HTMLElement, ev: Event) => void
+    errCb.call(fakeScript, new Event('error'))
 
     await expect(p).rejects.toThrow('[Monocle] Failed to load script')
     expect(removeSpy).toHaveBeenCalledWith(fakeScript as any)
-    // @ts-ignore
     expect((m as any)._ready).toBe(false)
   })
 
   it('Global callbacks correctly call _dispatch with the right detail', () => {
     const m = new Monocle({ token: 't' })
     // Prepare _dispatch spy
-    const dispatchSpy = vi.spyOn((m as any), '_dispatch').mockImplementation(() => {})
+    const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
 
     m.init() // instantiate global callbacks
 
@@ -102,7 +102,7 @@ describe('Monocle', () => {
     vi.spyOn(m, 'init').mockResolvedValue()
     // Case: refresh rejects
     ;(globalThis as any).MCL.refresh = vi.fn().mockRejectedValue(new Error('fail-refresh'))
-    const dispatchSpy = vi.spyOn((m as any), '_dispatch').mockImplementation(() => {})
+    const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
 
     await expect(m.getBundle()).rejects.toThrow('fail-refresh')
     expect(dispatchSpy).toHaveBeenCalledWith('monocle-error', expect.any(Error))
@@ -121,9 +121,9 @@ describe('Monocle', () => {
 
     // Capture 'load' event listener
     const loadCall = fakeScript.addEventListener.mock.calls.find(
-      ([event]: [string]) => event === 'load'
+      ([event]: [string]) => event === 'load',
     )!
-    const loadCb = loadCall[1] as Function
+    const loadCb = loadCall[1] as (this: HTMLElement, ev: Event) => void
 
     // Override _dispatch to catch the event
     ;(m as any)._dispatch = (event: string) => {
@@ -133,7 +133,7 @@ describe('Monocle', () => {
     // Simulate global onload
     ;(window as any).monocleOnloadCallback!()
     // Then trigger script load
-    loadCb()
+    loadCb.call(fakeScript, new Event('load'))
     await promise
   })
 
@@ -141,15 +141,13 @@ describe('Monocle', () => {
     const m = new Monocle({ token: 't2' })
     // Manually initialize eventTarget
     ;(m as any)._eventTarget = new EventTarget()
-    vi.spyOn((m as any), '_dispatch').mockImplementation(
-      function (
-        this: { _eventTarget: EventTarget },
-        event: string,
-        detail: any
-      ) {
-        this._eventTarget.dispatchEvent(new CustomEvent(event, { detail }))
-      } as any
-    )
+    vi.spyOn(m as any, '_dispatch').mockImplementation(function (
+      this: { _eventTarget: EventTarget },
+      event: string,
+      detail: any,
+    ) {
+      this._eventTarget.dispatchEvent(new CustomEvent(event, { detail }))
+    } as any)
 
     const handler = vi.fn()
     m.on('monocle-success', handler)

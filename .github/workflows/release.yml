@@ -6,7 +6,7 @@ permissions:
 
 on:
   push:
-    branches: [ main, develop, beta ]
+    branches: [main, develop, beta]
 
 jobs:
   release:
@@ -37,5 +37,5 @@ jobs:
       - name: Release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run release

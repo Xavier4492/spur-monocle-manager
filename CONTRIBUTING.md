@@ -7,9 +7,9 @@ Thank you for your interest in contributing to **spur-monocle-manager**! Bug rep
 1. First, check if a similar issue already exists in the [Issues](https://github.com/Xavier4492/spur-monocle-manager/issues).
 2. If not, open a new issue and describe:
 
-   * The expected and actual behavior.
-   * Steps to reproduce the problem.
-   * The package version (`npm list spur-monocle-manager`) and your environment (Node.js version, OS).
+   - The expected and actual behavior.
+   - Steps to reproduce the problem.
+   - The package version (`npm list spur-monocle-manager`) and your environment (Node.js version, OS).
 
 ## 2. Proposing a Fix or New Feature
 
@@ -38,8 +38,8 @@ Thank you for your interest in contributing to **spur-monocle-manager**! Bug rep
 
 ## 3. Review Process
 
-* Maintainers will review your PR and may request changes (e.g., style, tests, documentation).
-* Once approved, your contribution will be merged and included in the next automated release via GitHub Actions + Semantic Release.
+- Maintainers will review your PR and may request changes (e.g., style, tests, documentation).
+- Once approved, your contribution will be merged and included in the next automated release via GitHub Actions + Semantic Release.
 
 ## 4. Code of Conduct
 
