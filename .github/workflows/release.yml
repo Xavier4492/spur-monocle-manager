@@ -1,5 +1,9 @@
 name: Release
 
+permissions:
+  contents: write
+  issues: write
+
 on:
   push:
     branches: [ main, develop, beta ]
@@ -10,6 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,5 +37,5 @@ jobs:
       - name: Release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
         run: npm run release
