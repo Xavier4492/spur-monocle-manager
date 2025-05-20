@@ -185,7 +185,6 @@ describe('Monocle', () => {
   })
 })
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 describe('Server-side fallback', () => {
   let originalWindow: any
 
@@ -205,6 +204,30 @@ describe('Server-side fallback', () => {
   })
 
   it('getBundle() resolves immediately when window is undefined', async () => {
+    const m = new Monocle({ token: 't' })
+    await expect(m.getBundle()).resolves.toBeUndefined()
+  })
+})
+
+describe('Server-side fallback', () => {
+  let originalWindow: any
+
+  beforeAll(() => {
+    // Simule un environnement sans window
+    originalWindow = (globalThis as any).window
+    ;(globalThis as any).window = undefined
+  })
+  afterAll(() => {
+    // Restaure window
+    ;(globalThis as any).window = originalWindow
+  })
+
+  it('init() résout immédiatement si window est undefined', async () => {
+    const m = new Monocle({ token: 't' })
+    await expect(m.init()).resolves.toBeUndefined()
+  })
+
+  it('getBundle() résout immédiatement si window est undefined', async () => {
     const m = new Monocle({ token: 't' })
     await expect(m.getBundle()).resolves.toBeUndefined()
   })
@@ -233,5 +256,31 @@ describe('init(): idempotence', () => {
     const p2 = m.init()
     expect(p2).toBe(p1) // même promesse
     await expect(p1).resolves.toBeUndefined()
+  })
+})
+
+describe('Event registration edge-cases', () => {
+  it('on() appelle init() si _eventTarget n’est pas encore créé', () => {
+    const m = new Monocle({ token: 'abc' })
+    const initSpy = vi.spyOn(m, 'init').mockResolvedValue()
+    // Force _eventTarget à null pour simuler l’appel avant init()
+    ;(m as any)._eventTarget = null
+    m.on('monocle-success', () => {})
+    expect(initSpy).toHaveBeenCalled()
+  })
+
+  it('off() ne lève pas si on retire un handler inexistant', () => {
+    const m = new Monocle({ token: 'abc' })
+    ;(m as any)._eventTarget = new EventTarget()
+    // Aucun handler enregistré, off ne doit pas planter
+    expect(() => m.off('monocle-success', () => {})).not.toThrow()
+  })
+})
+
+describe('destroy(): early return', () => {
+  it('destroy() ne fait rien si pas initialisé (_ready=false)', () => {
+    const m = new Monocle({ token: 'abc' })
+    // _ready est false par défaut
+    expect(() => m.destroy()).not.toThrow()
   })
 })
