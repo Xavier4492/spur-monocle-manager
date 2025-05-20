@@ -1,6 +1,6 @@
 const MONOCLE_SCRIPT_URL = 'https://mcl.spur.us/d/mcl.js'
 
-type MonocleEvents = 'monocle-success' | 'monocle-error' | 'monocle-onload'
+export type MonocleEvents = 'monocle-success' | 'monocle-error' | 'monocle-onload'
 
 export interface MonocleOptions {
   token: string // Authentication token for Monocle API
