@@ -41,6 +41,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:ci": "vitest --run --coverage",
+    "docs:api": "typedoc",
     "release": "semantic-release"
   },
   "devDependencies": {
@@ -63,6 +64,7 @@
     "prettier": "^3.5.3",
     "semantic-release": "^24.2.4",
     "tsup": "^8.5.0",
+    "typedoc": "^0.28.4",
     "typescript": "^5.8.3",
     "vitest": "^3.1.4"
   },
