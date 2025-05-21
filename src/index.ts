@@ -93,10 +93,10 @@ export default class Monocle {
     await this.init()
 
     // Use stored instance or fallback to global
-    const mclInstance = this._monocle || (window as any).MCL
+    const mcl = this._monocle || (window as any).MCL
     try {
-      await mclInstance.refresh()
-      const bundle = mclInstance.getBundle()
+      await mcl.refresh()
+      const bundle = mcl.getBundle()
       if (!bundle) {
         throw new Error('[Monocle] No data returned')
       }
