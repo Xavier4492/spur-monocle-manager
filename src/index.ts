@@ -13,8 +13,8 @@ export interface MonocleOptions {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export default class Monocle {
   private token: string
-  private static _initialized = false
-  private static _readyPromise: Promise<void> | null = null // Promise resolving when script is ready
+  private _initialized = false
+  private _readyPromise: Promise<void> | null = null // Promise resolving when script is ready
   private _script: HTMLScriptElement | null = null // <script> element reference
   private _monocle: any = null // Global MCL object once loaded
   private _eventTarget: EventTarget | null = null // EventTarget for custom events
@@ -43,20 +43,21 @@ export default class Monocle {
    * Returns a promise that resolves when the script is loaded or rejects on failure.
    */
   public init(): Promise<void> {
-    // No-op on server-side
-    if (typeof window === 'undefined') return Promise.resolve()
-
-    // If already initialized, return the existing promise
-    if (Monocle._initialized) {
-      console.warn('[Monocle] already initialized, init() ignored')
-      // To share the same loading promise:
-      return Monocle._readyPromise as Promise<void>
+    if (typeof window === 'undefined') {
+      return Promise.reject(new Error('[Monocle] init() not supported in SSR'))
     }
 
-    Monocle._initialized = true
+    // If already initialized, return the existing promise
+    if (this._initialized) {
+      console.warn('[Monocle] already initialized, init() ignored')
+      // To share the same loading promise:
+      return this._readyPromise as Promise<void>
+    }
+
+    this._initialized = true
 
     // Creates and stores the static promise
-    Monocle._readyPromise = new Promise((resolve, reject) => {
+    this._readyPromise = new Promise((resolve, reject) => {
       this._eventTarget = new EventTarget()
       const script = document.createElement('script')
       this._script = script
@@ -83,15 +84,15 @@ export default class Monocle {
         } catch {
           // ignore if not present
         }
-        Monocle._initialized = false
-        Monocle._readyPromise = null
+        this._initialized = false
+        this._readyPromise = null
         reject(new Error('[Monocle] Failed to load script'))
       })
 
       document.head.appendChild(script)
     })
 
-    return Monocle._readyPromise
+    return this._readyPromise
   }
 
   /**
@@ -159,7 +160,7 @@ export default class Monocle {
    * Clean up the Monocle script and all associated resources.
    */
   public destroy(): void {
-    if (typeof window === 'undefined' || !Monocle._initialized) return
+    if (typeof window === 'undefined' || !this._initialized) return
 
     // Remove the specific script instance
     this._script?.parentNode?.removeChild(this._script)
@@ -181,7 +182,7 @@ export default class Monocle {
     this._handlers.clear()
 
     // Re-authorizes a later re-init
-    Monocle._initialized = false
-    Monocle._readyPromise = null
+    this._initialized = false
+    this._readyPromise = null
   }
 }
