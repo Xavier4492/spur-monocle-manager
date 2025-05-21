@@ -2,6 +2,12 @@
 
 All notable changes...
 
+## [1.2.5](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.2.4...v1.2.5) (2025-05-21)
+
+### Bug Fixes
+
+* enhance getBundle() to support retries and improve error handling ([11986ee](https://github.com/Xavier4492/spur-monocle-manager/commit/11986eee11bc1c9a0ace4e3258716c339ed846ea))
+
 ## [1.2.4](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.2.3...v1.2.4) (2025-05-21)
 
 ### Bug Fixes
