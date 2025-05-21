@@ -1,9 +1,11 @@
-// eslint.config.js (nouveau format ESLint 9)
 import eslintPluginPrettier from 'eslint-plugin-prettier'
 import pluginTs from '@typescript-eslint/eslint-plugin'
 import parserTs from '@typescript-eslint/parser'
 
 export default [
+  {
+    ignores: ['node_modules/**', 'dist/**', 'coverage/**', '**/*.d.ts'],
+  },
   {
     files: ['**/*.ts', '**/*.js'],
     languageOptions: {
