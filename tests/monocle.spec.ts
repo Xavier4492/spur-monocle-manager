@@ -33,7 +33,7 @@ describe('Monocle', () => {
     // Simulated global MCL object
     ;(globalThis as any).MCL = {
       refresh: vi.fn().mockResolvedValue(undefined),
-      getBundle: vi.fn().mockReturnValue({ foo: 'bar' }),
+      getBundle: vi.fn().mockReturnValue('fake-jwt-token'),
     }
   })
 
@@ -77,7 +77,8 @@ describe('Monocle', () => {
 
     await expect(p).rejects.toThrow('[Monocle] Failed to load script')
     expect(removeSpy).toHaveBeenCalledWith(fakeScript as any)
-    expect((m as any)._ready).toBe(false)
+    expect((m as any)._initialized).toBe(false)
+    expect((m as any)._readyPromise).toBeNull()
   })
 
   it('Global callbacks correctly call _dispatch with the right detail', () => {
@@ -115,26 +116,14 @@ describe('Monocle', () => {
     expect(dispatchSpy).toHaveBeenCalledWith('monocle-error', expect.any(Error))
   })
 
-  it('monocle-onload event is dispatched after loading', async () => {
+  it('monocle-onload callback dispatches event without load', () => {
     const m = new Monocle({ token: 'y' })
-    const promise = m.init()
+    const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
 
-    // Capture 'load' event listener
-    const loadCall = fakeScript.addEventListener.mock.calls.find(
-      ([event]: [string]) => event === 'load',
-    )!
-    const loadCb = loadCall[1] as (this: HTMLElement, ev: Event) => void
+    m.init()
+    ;(window as any).monocleOnloadCallback()
 
-    // Override _dispatch to catch the event
-    ;(m as any)._dispatch = (event: string) => {
-      expect(event).toBe('monocle-onload')
-    }
-
-    // Simulate global onload
-    ;(window as any).monocleOnloadCallback!()
-    // Then trigger script load
-    loadCb.call(fakeScript, new Event('load'))
-    await promise
+    expect(dispatchSpy).toHaveBeenCalledWith('monocle-onload', undefined)
   })
 
   it('on/off correctly handles events', () => {
@@ -163,7 +152,8 @@ describe('Monocle', () => {
     const m = new Monocle({ token: 'x' })
     // Simulate script and ready state
     ;(m as any)._script = { parentNode: { removeChild: vi.fn() } } as any
-    ;(m as any)._ready = Promise.resolve()
+    ;(m as any)._initialized = true
+    ;(m as any)._readyPromise = Promise.resolve()
 
     // Simulate other scripts in head
     vi.spyOn(document.head, 'querySelectorAll').mockReturnValue([
@@ -185,7 +175,7 @@ describe('Monocle', () => {
   })
 })
 
-describe('Server-side fallback', () => {
+describe('Server-side fallback (window undefined)', () => {
   let originalWindow: any
 
   beforeAll(() => {
@@ -198,38 +188,16 @@ describe('Server-side fallback', () => {
     ;(globalThis as any).window = originalWindow
   })
 
-  it('init() resolves immediately when window is undefined', async () => {
+  it('init() rejects when window is undefined', async () => {
     const m = new Monocle({ token: 't' })
-    await expect(m.init()).resolves.toBeUndefined()
+    await expect(m.init()).rejects.toThrow('[Monocle] init() not supported in SSR')
   })
 
-  it('getBundle() resolves immediately when window is undefined', async () => {
+  it('getBundle() throws when window is undefined', async () => {
     const m = new Monocle({ token: 't' })
-    await expect(m.getBundle()).resolves.toBeUndefined()
-  })
-})
-
-describe('Server-side fallback', () => {
-  let originalWindow: any
-
-  beforeAll(() => {
-    // Simule un environnement sans window
-    originalWindow = (globalThis as any).window
-    ;(globalThis as any).window = undefined
-  })
-  afterAll(() => {
-    // Restaure window
-    ;(globalThis as any).window = originalWindow
-  })
-
-  it('init() résout immédiatement si window est undefined', async () => {
-    const m = new Monocle({ token: 't' })
-    await expect(m.init()).resolves.toBeUndefined()
-  })
-
-  it('getBundle() résout immédiatement si window est undefined', async () => {
-    const m = new Monocle({ token: 't' })
-    await expect(m.getBundle()).resolves.toBeUndefined()
+    await expect(m.getBundle()).rejects.toThrow(
+      '[Monocle] getBundle() is not available on the server side',
+    )
   })
 })
 
@@ -237,7 +205,6 @@ describe('init(): idempotence', () => {
   let fakeScript: any
 
   beforeEach(() => {
-    // même setup que plus haut pour intercepter createElement
     document.head.innerHTML = ''
     fakeScript = { addEventListener: vi.fn(), async: false, defer: false, src: '' }
     vi.spyOn(document, 'createElement').mockImplementation(() => fakeScript as any)
@@ -245,42 +212,38 @@ describe('init(): idempotence', () => {
     ;(globalThis as any).MCL = { refresh: vi.fn().mockResolvedValue(undefined), getBundle: vi.fn() }
   })
 
-  it('returns the same promise if called deux fois', async () => {
+  it('returns the same promise if called twice', async () => {
     const m = new Monocle({ token: 'xyz' })
     const p1 = m.init()
-    // Simule la charge du script
     const loadCall = fakeScript.addEventListener.mock.calls.find(([e]: [string]) => e === 'load')!
     const loadCb = loadCall[1] as () => void
     loadCb()
 
     const p2 = m.init()
-    expect(p2).toBe(p1) // même promesse
+    expect(p2).toBe(p1)
     await expect(p1).resolves.toBeUndefined()
   })
 })
 
 describe('Event registration edge-cases', () => {
-  it('on() appelle init() si _eventTarget n’est pas encore créé', () => {
+  it('on() calls init() if _eventTarget is null', () => {
     const m = new Monocle({ token: 'abc' })
     const initSpy = vi.spyOn(m, 'init').mockResolvedValue()
-    // Force _eventTarget à null pour simuler l’appel avant init()
     ;(m as any)._eventTarget = null
     m.on('monocle-success', () => {})
     expect(initSpy).toHaveBeenCalled()
   })
 
-  it('off() ne lève pas si on retire un handler inexistant', () => {
+  it('off() does not throw if removing non-existent handler', () => {
     const m = new Monocle({ token: 'abc' })
     ;(m as any)._eventTarget = new EventTarget()
-    // Aucun handler enregistré, off ne doit pas planter
     expect(() => m.off('monocle-success', () => {})).not.toThrow()
   })
 })
 
 describe('destroy(): early return', () => {
-  it('destroy() ne fait rien si pas initialisé (_ready=false)', () => {
+  it('destroy() does nothing if not initialized', () => {
     const m = new Monocle({ token: 'abc' })
-    // _ready est false par défaut
     expect(() => m.destroy()).not.toThrow()
   })
 })

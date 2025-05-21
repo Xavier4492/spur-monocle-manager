@@ -1,4 +1,4 @@
-# Monocle Loader Plugin
+# spur-monocle-manager
 
 [![CI](https://github.com/Xavier4492/spur-monocle-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/Xavier4492/spur-monocle-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/Xavier4492/spur-monocle-manager/actions/workflows/release.yml/badge.svg)](https://github.com/Xavier4492/spur-monocle-manager/actions/workflows/release.yml)
@@ -12,6 +12,7 @@
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [API](#api)
+- [Monocle Events](#monocle-events)
 - [Tests & CI](#tests--ci)
 - [Contributing](#contributing)
 - [License](#license)
@@ -29,7 +30,12 @@ import Monocle from 'spur-monocle-manager'
 
 async function main() {
   const monocle = new Monocle({ token: 'YOUR_TOKEN_HERE' })
-  await monocle.init()
+
+  try {
+    await monocle.init()
+  } catch (err) {
+    console.error('Unable to initialize Monocle (SSR or already loaded):', err)
+  }
 
   // Listen for events
   monocle.on('monocle-success', (data) => {
@@ -40,8 +46,10 @@ async function main() {
   const bundle = await monocle.getBundle()
   console.log(bundle)
 
-  // Clean up when done
-  monocle.destroy()
+  const bundle2 = await monocle.getBundle() // you can call it again to get fresh bundle
+
+  // Clean up when done (optional)
+  // monocle.destroy()
 }
 
 main().catch(console.error)
@@ -54,26 +62,51 @@ main().catch(console.error)
 Creates a new Monocle loader instance.
 
 - `options.token: string` — Required Monocle authentication token.
+- ❗ **Throws** if no token is provided.
 
 ### `init(): Promise<void>`
 
 Injects the Monocle script into the page and initializes global callbacks.
 
-### `getBundle(): Promise<any>`
+- Calling `init()` multiple times is safe: it returns the same promise and logs a warning.
 
-Refreshes Monocle data and returns the bundle. Triggers `monocle-success` or `monocle-error`.
+### `getBundle(): Promise<string>`
 
-### `on(event, handler)`
+Refreshes Monocle data and returns a signed JWT bundle as a `string`.
 
-Subscribes to an event (`monocle-success`, `monocle-error`, `monocle-onload`).
+- Automatically calls `init()` if not already initialized.
+- Triggers a `'monocle-success'` event with the bundle content on success.
+- Triggers a `'monocle-error'` event on failure (e.g., if no bundle is returned).
+- ❗ **Throws** if called in server-side context or if the bundle is unavailable.
 
-### `off(event, handler)`
+### `on(event: MonocleEvents, handler: (detail: any) => void): void`
 
-Unsubscribes from an event.
+Subscribes to Monocle-specific events.
+
+- `event`: One of `'monocle-success'`, `'monocle-error'`, `'monocle-onload'`.
+- `handler`: Function that receives the event `detail` as its only parameter.
+
+### `off(event: MonocleEvents, handler: (detail: any) => void): void`
+
+Unsubscribes a previously registered event listener.
+
+- Requires the exact same function reference used in `.on()`.
 
 ### `destroy(): void`
 
 Cleans up the injected script, global callbacks, and internal state.
+
+- Can be re-initialized later with another call to `init()`.
+
+## Monocle Events
+
+The Monocle class dispatches events through an internal `EventTarget`. You can subscribe to these using `.on()` and `.off()`:
+
+| Event Name        | Description                                                                 |
+| ----------------- | --------------------------------------------------------------------------- |
+| `monocle-success` | Emitted when the Monocle bundle is successfully retrieved. Payload: string. |
+| `monocle-error`   | Emitted when there is an error loading or fetching the bundle.              |
+| `monocle-onload`  | Emitted once the Monocle script has been successfully loaded.               |
 
 ## Tests & CI
 
