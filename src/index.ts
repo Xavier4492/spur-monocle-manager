@@ -111,7 +111,7 @@ export default class Monocle {
     const mcl = this._monocle || (window as any).MCL
     try {
       await mcl.refresh()
-      const bundle = mcl.getBundle() as string | null
+      const bundle = (await mcl.getBundle()) as string | null
       if (!bundle) {
         throw new Error('[Monocle] No data returned')
       }
