@@ -48,14 +48,14 @@ export default class Monocle {
 
     // If already initialized, return the existing promise
     if (Monocle._initialized) {
-      console.warn('[Monocle] déjà initialisé, init() ignorée')
-      // Si vous voulez partager la même promesse de chargement :
+      console.warn('[Monocle] already initialized, init() ignored')
+      // To share the same loading promise:
       return Monocle._readyPromise as Promise<void>
     }
 
     Monocle._initialized = true
 
-    // crée et stocker la promesse statique
+    // Creates and stores the static promise
     Monocle._readyPromise = new Promise((resolve, reject) => {
       this._eventTarget = new EventTarget()
       const script = document.createElement('script')
