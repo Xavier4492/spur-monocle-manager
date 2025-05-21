@@ -13,10 +13,11 @@ export interface MonocleOptions {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export default class Monocle {
   private token: string
+  private static _initialized = false
+  private static _readyPromise: Promise<void> | null = null // Promise resolving when script is ready
   private _script: HTMLScriptElement | null = null // <script> element reference
   private _monocle: any = null // Global MCL object once loaded
   private _eventTarget: EventTarget | null = null // EventTarget for custom events
-  private _ready: Promise<void> | false = false // Promise resolving when script is ready
   private _handlers = new Map<string, EventListener>() // Stored event handlers for off()
 
   /**
@@ -44,24 +45,32 @@ export default class Monocle {
   public init(): Promise<void> {
     // No-op on server-side
     if (typeof window === 'undefined') return Promise.resolve()
-    // Return existing promise if already initializing/loaded
-    if (this._ready) return this._ready as Promise<void>
 
-    this._eventTarget = new EventTarget()
-    const script = document.createElement('script')
-    this._script = script
-    script.id = '_mcl'
-    script.async = true
-    script.defer = true
-    script.src = `${MONOCLE_SCRIPT_URL}?tk=${encodeURIComponent(this.token)}`
+    // If already initialized, return the existing promise
+    if (Monocle._initialized) {
+      console.warn('[Monocle] déjà initialisé, init() ignorée')
+      // Si vous voulez partager la même promesse de chargement :
+      return Monocle._readyPromise as Promise<void>
+    }
 
-    // Setup global callbacks to forward events
-    ;(window as any).monocleSuccessCallback = (data: any) => this._dispatch('monocle-success', data)
-    ;(window as any).monocleErrorCallback = (err: any) => this._dispatch('monocle-error', err)
-    ;(window as any).monocleOnloadCallback = () => this._dispatch('monocle-onload', undefined)
+    Monocle._initialized = true
 
-    // Create a promise that resolves on load or rejects on error
-    this._ready = new Promise((resolve, reject) => {
+    // crée et stocker la promesse statique
+    Monocle._readyPromise = new Promise((resolve, reject) => {
+      this._eventTarget = new EventTarget()
+      const script = document.createElement('script')
+      this._script = script
+      script.id = '_mcl'
+      script.async = true
+      script.defer = true
+      script.src = `${MONOCLE_SCRIPT_URL}?tk=${encodeURIComponent(this.token)}`
+
+      // Setup global callbacks to forward events
+      ;(window as any).monocleSuccessCallback = (data: any) =>
+        this._dispatch('monocle-success', data)
+      ;(window as any).monocleErrorCallback = (err: any) => this._dispatch('monocle-error', err)
+      ;(window as any).monocleOnloadCallback = () => this._dispatch('monocle-onload', undefined)
+
       script.addEventListener('load', () => {
         // Store the global MCL object reference
         this._monocle = (window as any).MCL
@@ -74,13 +83,15 @@ export default class Monocle {
         } catch {
           // ignore if not present
         }
-        this._ready = false
+        Monocle._initialized = false
+        Monocle._readyPromise = null
         reject(new Error('[Monocle] Failed to load script'))
       })
+
       document.head.appendChild(script)
     })
 
-    return this._ready as Promise<void>
+    return Monocle._readyPromise
   }
 
   /**
@@ -145,7 +156,7 @@ export default class Monocle {
    * Clean up the Monocle script and all associated resources.
    */
   public destroy(): void {
-    if (typeof window === 'undefined' || !this._ready) return
+    if (typeof window === 'undefined' || !Monocle._initialized) return
 
     // Remove the specific script instance
     this._script?.parentNode?.removeChild(this._script)
@@ -164,7 +175,10 @@ export default class Monocle {
     this._eventTarget = null
     this._monocle = null
     this._script = null
-    this._ready = false
     this._handlers.clear()
+
+    // Re-authorizes a later re-init
+    Monocle._initialized = false
+    Monocle._readyPromise = null
   }
 }
