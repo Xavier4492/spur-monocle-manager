@@ -2,6 +2,12 @@
 
 All notable changes...
 
+## [1.2.4](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.2.3...v1.2.4) (2025-05-21)
+
+### Bug Fixes
+
+* await getBundle() to ensure proper async handling in Monocle class ([9e115a3](https://github.com/Xavier4492/spur-monocle-manager/commit/9e115a3af92aafcf0c3fd5a1a92aaa7482e95453))
+
 ## [1.2.3](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.2.2...v1.2.3) (2025-05-21)
 
 ## [1.2.2](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.2.1...v1.2.2) (2025-05-21)
