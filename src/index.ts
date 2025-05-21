@@ -95,19 +95,22 @@ export default class Monocle {
   }
 
   /**
-   * Refresh and retrieve the latest Monocle bundle data.
-   * @returns The data bundle from Monocle
-   * @throws Error if refresh or data retrieval fails
+   * Refresh and retrieve the latest Monocle bundle (JWT-string).
+   * @returns The Monocle bundle as a string
+   * @throws Error if called in SSR or si aucun bundle n'est retourné
    */
-  public async getBundle(): Promise<any> {
-    if (typeof window === 'undefined') return Promise.resolve()
+  public async getBundle(): Promise<string> {
+    if (typeof window === 'undefined') {
+      throw new Error('[Monocle] getBundle() is not available on the server side')
+    }
+
     await this.init()
 
     // Use stored instance or fallback to global
     const mcl = this._monocle || (window as any).MCL
     try {
       await mcl.refresh()
-      const bundle = mcl.getBundle()
+      const bundle = mcl.getBundle() as string | null
       if (!bundle) {
         throw new Error('[Monocle] No data returned')
       }
