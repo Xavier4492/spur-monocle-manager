@@ -69,7 +69,6 @@ export default class Monocle {
     this._readyPromise = new Promise((resolve, reject) => {
       this._eventTarget = new EventTarget()
       ;(window as any)._onAssessment = (jwt: string) => {
-        console.log('Monocle assessment reçu:', jwt)
         this._dispatch('assessment', jwt)
         // close init() promise
         resolve()
