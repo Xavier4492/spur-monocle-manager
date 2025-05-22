@@ -1,6 +1,6 @@
 const MONOCLE_SCRIPT_URL = 'https://mcl.spur.us/d/mcl.js'
 
-export type MonocleEvents = 'monocle-success' | 'monocle-error' | 'monocle-onload'
+export type MonocleEvents = 'assessment' | 'error' | 'load'
 
 export interface MonocleOptions {
   token: string // Authentication token for Monocle API
@@ -48,6 +48,7 @@ export default class Monocle {
    * Load the Monocle script into the document.
    * Returns a promise that resolves when the script is loaded or rejects on failure.
    */
+  // TODO:: Add Timeout if script not loaded after xxx ms
   public init(): Promise<void> {
     if (typeof window === 'undefined') {
       return Promise.reject(new Error('[Monocle] init() not supported in SSR'))
@@ -67,24 +68,27 @@ export default class Monocle {
     // Creates and stores the static promise
     this._readyPromise = new Promise((resolve, reject) => {
       this._eventTarget = new EventTarget()
-      const script = document.createElement('script')
+      // TODO: check if getAsessment give jwt or body data right
+      ;(window as any)._onAssessment = (jwt: string) => {
+        console.log('Monocle assessment reçu:', jwt)
+        this._dispatch('assessment', jwt)
+        resolve() // close init() promise
+      }
+
+      const script = document.createElement('script') as HTMLScriptElement
       this._script = script
       script.id = '_mcl'
       script.async = true
       script.defer = true
       script.src = `${MONOCLE_SCRIPT_URL}?tk=${encodeURIComponent(this.token)}`
 
-      // Setup global callbacks to forward events
-      ;(window as any).monocleSuccessCallback = (data: any) =>
-        this._dispatch('monocle-success', data)
-      ;(window as any).monocleErrorCallback = (err: any) => this._dispatch('monocle-error', err)
-      ;(window as any).monocleOnloadCallback = () => this._dispatch('monocle-onload', undefined)
-
       script.addEventListener('load', () => {
         // Store the global MCL object reference
         this._monocle = (window as any).MCL
-        resolve()
+        this._dispatch('load', undefined)
+        // resolve() to close init() promise at the end of the script loading, assessment is not yet available
       })
+
       script.addEventListener('error', () => {
         // Cleanup on failure
         try {
@@ -94,8 +98,14 @@ export default class Monocle {
         }
         this._initialized = false
         this._readyPromise = null
-        reject(new Error('[Monocle] Failed to load script'))
+
+        let err = new Error('[Monocle] Failed to load script')
+        this._dispatch('error', err)
+        reject(err)
       })
+
+      script.setAttribute('onassessment', '_onAssessment')
+      script.setAttribute('onbundle', '_onAssessment')
 
       document.head.appendChild(script)
     })
@@ -120,20 +130,22 @@ export default class Monocle {
 
     // Ensure the script is injected and MCL is defined
     await this.init()
-    const mcl = this._monocle || (window as any).MCL
+
+    if (!this._monocle) {
+      throw new Error('[Monocle] MCL is not defined')
+    }
 
     // Try to refresh + getAssessment up to `retries` times
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        await mcl.refresh()
-        const assessment = (await mcl.getAssessment()) as string | null
+        await this._monocle.refresh()
+        const assessment = (await this._monocle.getAssessment()) as string | null
         if (assessment) {
-          this._dispatch('monocle-success', assessment)
           return assessment
         }
       } catch (err: any) {
         // Underlying error (network, parsing, etc.)
-        this._dispatch('monocle-error', err)
+        this._dispatch('error', err)
         throw err
       }
       // No assessment yet: wait before retrying
@@ -142,7 +154,7 @@ export default class Monocle {
 
     // All retries exhausted, still no assessment
     const error = new Error('[Monocle] No data returned after retries')
-    this._dispatch('monocle-error', error)
+    this._dispatch('error', error)
     throw error
   }
 
@@ -192,10 +204,8 @@ export default class Monocle {
       if (s.src.includes('mcl.spur.us')) s.remove()
     })
 
-    // Remove global callbacks and MCL reference
-    delete (window as any).monocleSuccessCallback
-    delete (window as any).monocleErrorCallback
-    delete (window as any).monocleOnloadCallback
+    // Remove global MCL references
+    delete (window as any)._onAssessment
     delete (window as any).MCL
 
     // Reset internal state

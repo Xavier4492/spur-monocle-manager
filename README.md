@@ -12,7 +12,7 @@
 Key Features of this SDK:
 
 - **Flexible loading:** Allows you to manually call `init()` at any point (e.g., page load) or automatically inject the script on-demand when you call `getAssessment()` (e.g., form submission).
-- **Emits lifecycle events:** Provides hooks (`monocle-onload`, `monocle-success`, `monocle-error`) for each stage of loading and fetching.
+- **Emits lifecycle events:** Provides hooks (`load`, `assessment`, `error`) for each stage of loading and fetching.
 
 ## Table of Contents
 
@@ -45,11 +45,11 @@ async function main() {
   }
 
   // Listen for events
-  monocle.on('monocle-success', (data) => {
+  monocle.on('assessment', (data) => {
     console.log('Assessment data:', data)
   })
 
-  // Retrieve the assessment and trigger the 'monocle-success' event
+  // Retrieve the assessment and trigger the 'assessment' event
   const assessment = await monocle.getAssessment()
   console.log(assessment)
 
@@ -86,15 +86,15 @@ Refreshes Monocle data and returns a signed JWT assessment as a `string`.
   - `retries: number` — Optional. Number of retry attempts if no assessment is returned. Default is `5`.
   - `delayMs: number` — Optional. Delay in milliseconds between retry attempts. Default is `500` ms.
 - Automatically calls `init()` if not already initialized.
-- Triggers a `'monocle-success'` event with the assessment content on success.
-- Triggers a `'monocle-error'` event on failure (e.g., if no assessment is returned).
+- Triggers a `'assessment'` event with the assessment content on success.
+- Triggers a `'error'` event on failure (e.g., if no assessment is returned).
 - ❗ **Throws** if called in server-side context or if the assessment is unavailable after all retries.
 
 ### `on(event: MonocleEvents, handler: (detail: any) => void): void`
 
 Subscribes to Monocle-specific events.
 
-- `event`: One of `'monocle-success'`, `'monocle-error'`, `'monocle-onload'`.
+- `event`: One of `'assessment'`, `'error'`, `'load'`.
 - `handler`: Function that receives the event `detail` as its only parameter.
 
 ### `off(event: MonocleEvents, handler: (detail: any) => void): void`
@@ -115,9 +115,9 @@ The Monocle class dispatches events through an internal `EventTarget`. You can s
 
 | Event Name        | Description                                                                 |
 | ----------------- | --------------------------------------------------------------------------- |
-| `monocle-success` | Emitted when the Monocle assessment is successfully retrieved. Payload: string. |
-| `monocle-error`   | Emitted when there is an error loading or fetching the assessment.              |
-| `monocle-onload`  | Emitted once the Monocle script has been successfully loaded.               |
+| `assessment`      | Emitted when the Monocle assessment is successfully retrieved. Payload: string. |
+| `error`           | Emitted when there is an error loading or fetching the assessment.              |
+| `load`            | Emitted once the Monocle script has been successfully loaded.               |
 
 ## Tests & CI
 

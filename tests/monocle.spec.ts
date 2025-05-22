@@ -17,13 +17,14 @@ describe('Monocle', () => {
     // Spy on console.warn for debug logs
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    // Create a fake <script>
+    // Create a fake <script> with required DOM methods
     fakeScript = {
       id: '',
       async: false,
       defer: false,
       src: '',
       addEventListener: vi.fn(),
+      setAttribute: vi.fn(), // stub attribute setter
     }
 
     // Spy on document.createElement to return fakeScript
@@ -62,12 +63,13 @@ describe('Monocle', () => {
     expect(fakeScript.async).toBe(true)
     expect(fakeScript.defer).toBe(true)
 
-    // Retrieve and trigger the "load" callback
+    // Retrieve and trigger the "load" listener directly
     const loadCall = fakeScript.addEventListener.mock.calls.find(
       ([event]: [string]) => event === 'load',
     )!
-    const loadCb = loadCall[1].bind(fakeScript) as (this: HTMLElement, ev: Event) => any
-    loadCb.call(fakeScript, new Event('load'))
+    const loadCb = loadCall[1] as (ev: Event) => any
+    loadCb(new Event('load'))
+    ;(window as any)._onAssessment('fake-jwt-token')
 
     await expect(p).resolves.toBeUndefined()
     expect(fakeScript.src).toContain(`${FAKE_URL}?tk=abc`)
@@ -98,61 +100,38 @@ describe('Monocle', () => {
     const m = new Monocle({ token: 'abc', debug: true })
     // First init
     const p1 = m.init()
-    // Trigger load
     const loadCall = fakeScript.addEventListener.mock.calls.find(([e]: [string]) => e === 'load')!
     const loadCb = loadCall[1] as () => void
     loadCb()
+    // Simulate call to _onAssessment
+    ;(window as any)._onAssessment('fake-jwt-token')
     await p1
 
-    // Second init should warn
+    // Second init => warning and same promise
     const p2 = m.init()
     expect(consoleWarnSpy).toHaveBeenCalledWith('[Monocle] already initialized, init() ignored')
     expect(p2).toBe(p1)
   })
 
-  it('Global callbacks correctly call _dispatch with the right detail', () => {
-    const m = new Monocle({ token: 't' })
-    // Prepare _dispatch spy
-    const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
-
-    m.init() // instantiate global callbacks
-
-    // Simulate each callback
-    ;(window as any).monocleSuccessCallback('success-data')
-    ;(window as any).monocleErrorCallback('error-data')
-    ;(window as any).monocleOnloadCallback()
-
-    expect(dispatchSpy).toHaveBeenCalledWith('monocle-success', 'success-data')
-    expect(dispatchSpy).toHaveBeenCalledWith('monocle-error', 'error-data')
-    expect(dispatchSpy).toHaveBeenCalledWith('monocle-onload', undefined)
-  })
-
   it('getAssessment(): calls _dispatch on error and rejects', async () => {
     const m = new Monocle({ token: 'x' })
-    vi.spyOn(m, 'init').mockResolvedValue()
+    // Stub init to set up _monocle
+    vi.spyOn(m, 'init').mockImplementation(async () => {
+      ;(m as any)._monocle = (globalThis as any).MCL
+    })
     // Case: refresh rejects
     ;(globalThis as any).MCL.refresh = vi.fn().mockRejectedValue(new Error('fail-refresh'))
     const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
 
     await expect(m.getAssessment()).rejects.toThrow('fail-refresh')
-    expect(dispatchSpy).toHaveBeenCalledWith('monocle-error', expect.any(Error))
+    expect(dispatchSpy).toHaveBeenCalledWith('error', expect.any(Error))
 
     // Case: getAssessment() returns null
     ;(globalThis as any).MCL.refresh = vi.fn().mockResolvedValue(undefined)
     ;(globalThis as any).MCL.getAssessment = vi.fn().mockReturnValue(null)
 
     await expect(m.getAssessment()).rejects.toThrow('[Monocle] No data returned')
-    expect(dispatchSpy).toHaveBeenCalledWith('monocle-error', expect.any(Error))
-  })
-
-  it('monocle-onload callback dispatches event without load', () => {
-    const m = new Monocle({ token: 'y' })
-    const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
-
-    m.init()
-    ;(window as any).monocleOnloadCallback()
-
-    expect(dispatchSpy).toHaveBeenCalledWith('monocle-onload', undefined)
+    expect(dispatchSpy).toHaveBeenCalledWith('error', expect.any(Error))
   })
 
   it('on/off correctly handles events', () => {
@@ -168,23 +147,21 @@ describe('Monocle', () => {
     } as any)
 
     const handler = vi.fn()
-    m.on('monocle-success', handler)
-    ;(m as any)._dispatch('monocle-success', 123)
+    m.on('assessment', handler)
+    ;(m as any)._dispatch('assessment', 123)
     expect(handler).toHaveBeenCalledWith(123)
 
-    m.off('monocle-success', handler)
-    ;(m as any)._dispatch('monocle-success', 456)
+    m.off('assessment', handler)
+    ;(m as any)._dispatch('assessment', 456)
     expect(handler).toHaveBeenCalledTimes(1)
   })
 
   it('destroy(): cleans up DOM, global callbacks, and internal state', () => {
     const m = new Monocle({ token: 'x' })
-    // Simulate script and ready state
     ;(m as any)._script = { parentNode: { removeChild: vi.fn() } } as any
     ;(m as any)._initialized = true
     ;(m as any)._readyPromise = Promise.resolve()
 
-    // Simulate other scripts in head
     vi.spyOn(document.head, 'querySelectorAll').mockReturnValue([
       { src: 'https://mcl.spur.us/d/mcl.js', remove: vi.fn() },
       { src: 'other', remove: vi.fn() },
@@ -192,14 +169,11 @@ describe('Monocle', () => {
 
     m.destroy()
 
-    // Verify everything was cleaned up
     expect((m as any)._script).toBeNull()
     expect((m as any)._monocle).toBeNull()
     expect((m as any)._eventTarget).toBeNull()
     expect((m as any)._handlers.size).toBe(0)
-    expect((window as any).monocleSuccessCallback).toBeUndefined()
-    expect((window as any).monocleErrorCallback).toBeUndefined()
-    expect((window as any).monocleOnloadCallback).toBeUndefined()
+    expect((window as any)._onAssessment).toBeUndefined()
     expect((window as any).MCL).toBeUndefined()
   })
 
@@ -207,12 +181,10 @@ describe('Monocle', () => {
     let originalWindow: any
 
     beforeAll(() => {
-      // Simule un environnement sans window
       originalWindow = (globalThis as any).window
       delete (globalThis as any).window
     })
     afterAll(() => {
-      // Restaure window
       ;(globalThis as any).window = originalWindow
     })
 
@@ -234,7 +206,13 @@ describe('Monocle', () => {
 
     beforeEach(() => {
       document.head.innerHTML = ''
-      fakeScriptLocal = { addEventListener: vi.fn(), async: false, defer: false, src: '' }
+      fakeScriptLocal = {
+        addEventListener: vi.fn(),
+        async: false,
+        defer: false,
+        src: '',
+        setAttribute: vi.fn(),
+      }
       vi.spyOn(document, 'createElement').mockImplementation(() => fakeScriptLocal as any)
       vi.spyOn(document.head, 'appendChild').mockImplementation(() => fakeScriptLocal as any)
       ;(globalThis as any).MCL = {
@@ -251,6 +229,7 @@ describe('Monocle', () => {
       )!
       const loadCb2 = loadCall[1] as () => void
       loadCb2()
+      ;(window as any)._onAssessment('fake-jwt-token')
 
       const p2 = m.init()
       expect(p2).toBe(p1)
@@ -263,14 +242,14 @@ describe('Monocle', () => {
       const m = new Monocle({ token: 'abc' })
       const initSpy = vi.spyOn(m, 'init').mockResolvedValue()
       ;(m as any)._eventTarget = null
-      m.on('monocle-success', () => {})
+      m.on('assessment', () => {})
       expect(initSpy).toHaveBeenCalled()
     })
 
     it('off() does not throw if removing non-existent handler', () => {
       const m = new Monocle({ token: 'abc' })
       ;(m as any)._eventTarget = new EventTarget()
-      expect(() => m.off('monocle-success', () => {})).not.toThrow()
+      expect(() => m.off('assessment', () => {})).not.toThrow()
     })
   })
 
