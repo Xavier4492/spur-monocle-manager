@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Monocle from '../src/index'
 
 const FAKE_URL = 'https://mcl.spur.us/d/mcl.js'
-
+// TODO: add test foor init() timeout with options.initTimeout
 /* eslint-disable @typescript-eslint/no-explicit-any */
 describe('Monocle', () => {
   let fakeScript: any
@@ -94,6 +94,20 @@ describe('Monocle', () => {
     expect(removeSpy).toHaveBeenCalledWith(fakeScript as any)
     expect((m as any)._initialized).toBe(false)
     expect((m as any)._readyPromise).toBeNull()
+  })
+
+  it('init(): rejects after timeout', async () => {
+    vi.useFakeTimers()
+    const m = new Monocle({ token: 'tok', initTimeout: 1000 })
+    const p = m.init()
+    // avance de 999 ms → toujours pendante
+    vi.advanceTimersByTime(999)
+    await expect(Promise.race([p, Promise.resolve('still pending')])).resolves.toBe('still pending')
+
+    // avance de 1 ms de plus → timeout
+    vi.advanceTimersByTime(1)
+    await expect(p).rejects.toThrow('[Monocle] init() timeout after 1000 ms')
+    vi.useRealTimers()
   })
 
   it('init(): logs idempotent warning when called twice in debug mode', async () => {

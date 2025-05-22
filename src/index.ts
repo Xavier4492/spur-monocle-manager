@@ -5,6 +5,7 @@ export type MonocleEvents = 'assessment' | 'error' | 'load'
 
 export interface MonocleOptions {
   token: string // Authentication token for Monocle API
+  initTimeout?: number // Optional timeout for script loading (default: 5000ms)
   debug?: boolean // Optional debug flag for logging
 }
 
@@ -15,6 +16,7 @@ export interface MonocleOptions {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export default class Monocle {
   private token: string
+  private initTimeout: number // Timeout for script loading
   private _initialized = false
   private _readyPromise: Promise<void> | null = null // Promise resolving when script is ready
   private _script: HTMLScriptElement | null = null // <script> element reference
@@ -35,6 +37,7 @@ export default class Monocle {
       throw new Error('[Monocle] No token provided')
     }
     this.token = options.token
+    this.initTimeout = options.initTimeout || 5000 // Default timeout for script loading
     if (options.debug) {
       console.warn('[Monocle] Debug mode enabled')
     }
@@ -72,12 +75,28 @@ export default class Monocle {
 
     // Creates and stores the static promise
     this._readyPromise = new Promise((resolve, reject) => {
+      // Timer of timeout
+      const timer = setTimeout(() => {
+        // cleanup script
+        if (this._script?.parentNode) {
+          document.head.removeChild(this._script)
+        }
+        this._initialized = false
+        this._readyPromise = null
+
+        const err = new Error(`[Monocle] init() timeout after ${this.initTimeout} ms`)
+        this._dispatch('error', err)
+        reject(err)
+      }, this.initTimeout)
+
       ;(window as any)._onAssessment = (jwt: string) => {
+        clearTimeout(timer)
         this._dispatch('assessment', jwt)
         // close init() promise
         resolve()
       }
 
+      // Script injection
       const script = document.createElement('script') as HTMLScriptElement
       this._script = script
       script.id = '_mcl'
@@ -88,11 +107,12 @@ export default class Monocle {
       script.addEventListener('load', () => {
         // Store the global MCL object reference
         this._monocle = (window as any).MCL
-        this._dispatch('load', undefined)
+        this._dispatch('load')
         // resolve() to close init() promise at the end of the script loading, assessment is not yet available
       })
 
       script.addEventListener('error', () => {
+        clearTimeout(timer)
         // Cleanup on failure
         try {
           document.head.removeChild(script)

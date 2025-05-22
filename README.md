@@ -69,6 +69,7 @@ main().catch(console.error)
 Creates a new Monocle loader instance.
 
 - `options.token: string` — Required Monocle authentication token.
+- `options.initTimeout: number` — Optional timeout in milliseconds for the script to load (default: `5000` ms).
 - `options.debug: boolean` — Optional flag to enable debug logging (default: `false`).
 - ❗ **Throws** if no token is provided.
 
