@@ -2,6 +2,16 @@
 
 All notable changes...
 
+## [1.3.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.2.5...v1.3.0) (2025-05-22)
+
+### Features
+
+* add optional debug flag to Monocle options for enhanced logging ([c4fcca8](https://github.com/Xavier4492/spur-monocle-manager/commit/c4fcca86cf51e25dcbec0e3fd5c97595217b86ad))
+
+### Bug Fixes
+
+* update default retries in getAssessment() from 3 to 5 ([2cd1244](https://github.com/Xavier4492/spur-monocle-manager/commit/2cd1244b2bb7e9c3cd3ae8389d96c4adfe595e86))
+
 ## [1.2.5](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.2.4...v1.2.5) (2025-05-21)
 
 ### Bug Fixes
