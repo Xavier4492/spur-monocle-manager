@@ -1,3 +1,4 @@
+// TODO: add logs when debug is enabled
 const MONOCLE_SCRIPT_URL = 'https://mcl.spur.us/d/mcl.js'
 
 export type MonocleEvents = 'assessment' | 'error' | 'load'
@@ -19,7 +20,10 @@ export default class Monocle {
   private _script: HTMLScriptElement | null = null // <script> element reference
   private _monocle: any = null // Global MCL object once loaded
   private _eventTarget: EventTarget | null = null // EventTarget for custom events
-  private _handlers = new Map<string, EventListener>() // Stored event handlers for off()
+  private _handlers = new Map<
+    MonocleEvents,
+    Array<{ original: (detail: any) => void; wrapper: EventListener }>
+  >()
   private _debug: boolean // Debug mode flag
 
   /**
@@ -35,6 +39,7 @@ export default class Monocle {
       console.warn('[Monocle] Debug mode enabled')
     }
     this._debug = options.debug || false
+    this._eventTarget = new EventTarget()
   }
 
   /**
@@ -48,7 +53,7 @@ export default class Monocle {
    * Load the Monocle script into the document.
    * Returns a promise that resolves when the script is loaded or rejects on failure.
    */
-  // FIXME:: Add Timeout if script not loaded after xxx ms
+  // FIXME:: Add Timeout if script not loaded after delayMs
   public init(): Promise<void> {
     if (typeof window === 'undefined') {
       return Promise.reject(new Error('[Monocle] init() not supported in SSR'))
@@ -67,7 +72,6 @@ export default class Monocle {
 
     // Creates and stores the static promise
     this._readyPromise = new Promise((resolve, reject) => {
-      this._eventTarget = new EventTarget()
       ;(window as any)._onAssessment = (jwt: string) => {
         this._dispatch('assessment', jwt)
         // close init() promise
@@ -134,6 +138,7 @@ export default class Monocle {
       throw new Error('[Monocle] MCL is not defined')
     }
 
+    // TODO: remove loop, it's not needed since init() waits for onassessment
     // Try to refresh + getAssessment up to `retries` times
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
@@ -162,18 +167,20 @@ export default class Monocle {
    */
   public on(event: MonocleEvents, handler: (detail: any) => void): void {
     if (typeof window === 'undefined') return
+    if (!this._eventTarget) this._eventTarget = new EventTarget()
 
-    // Ensure an EventTarget exists and script is initialized
-    if (!this._eventTarget) {
-      this._eventTarget = new EventTarget()
-      this.init().catch(() => {})
+    // Prevent duplicate registrations for same handler
+    const existing = this._handlers.get(event) || []
+    if (existing.some((e) => e.original === handler)) {
+      if (this._debug) console.warn(`[Monocle] handler already registered for ${event}`)
+      return
     }
 
     // Wrap handler to extract detail from CustomEvent
     const wrapper: EventListener = (e: Event) => handler((e as CustomEvent).detail)
-    const key = `${event}:${handler}`
-    this._handlers.set(key, wrapper)
-    this._eventTarget.addEventListener(event, wrapper)
+    existing.push({ original: handler, wrapper })
+    this._handlers.set(event, existing)
+    this._eventTarget!.addEventListener(event, wrapper)
   }
 
   /**
@@ -181,12 +188,21 @@ export default class Monocle {
    */
   public off(event: MonocleEvents, handler: (detail: any) => void): void {
     if (typeof window === 'undefined') return
-
-    const key = `${event}:${handler}`
-    const wrapper = this._handlers.get(key)
-    if (wrapper) {
-      this._eventTarget?.removeEventListener(event, wrapper)
-      this._handlers.delete(key)
+    const list = this._handlers.get(event)
+    if (!list) return
+    // Remove all wrappers matching this handler
+    const remaining = [] as typeof list
+    list.forEach(({ original, wrapper }) => {
+      if (original === handler) {
+        this._eventTarget!.removeEventListener(event, wrapper)
+      } else {
+        remaining.push({ original, wrapper })
+      }
+    })
+    if (remaining.length) {
+      this._handlers.set(event, remaining)
+    } else {
+      this._handlers.delete(event)
     }
   }
 
@@ -206,6 +222,13 @@ export default class Monocle {
     // Remove global MCL references
     delete (window as any)._onAssessment
     delete (window as any).MCL
+
+    // Clean all listeners
+    if (this._eventTarget) {
+      this._handlers.forEach((arr, event) => {
+        arr.forEach(({ wrapper }) => this._eventTarget!.removeEventListener(event, wrapper))
+      })
+    }
 
     // Reset internal state
     this._eventTarget = null

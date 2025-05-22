@@ -238,12 +238,23 @@ describe('Monocle', () => {
   })
 
   describe('Event registration edge-cases', () => {
-    it('on() calls init() if _eventTarget is null', () => {
+    it('on() without existing eventTarget reinitializes it and registers handler (no init call)', () => {
       const m = new Monocle({ token: 'abc' })
-      const initSpy = vi.spyOn(m, 'init').mockResolvedValue()
+      // Force eventTarget à null
       ;(m as any)._eventTarget = null
-      m.on('assessment', () => {})
-      expect(initSpy).toHaveBeenCalled()
+      const initSpy = vi.spyOn(m, 'init')
+      const handler = vi.fn()
+
+      m.on('assessment', handler)
+
+      // on() ne doit pas déclencher init()
+      expect(initSpy).not.toHaveBeenCalled()
+      // eventTarget doit être recréé
+      expect((m as any)._eventTarget).toBeInstanceOf(EventTarget)
+
+      // Et le handler doit bien être enregistré : un dispatch appelle handler
+      ;(m as any)._dispatch('assessment', 123)
+      expect(handler).toHaveBeenCalledWith(123)
     })
 
     it('off() does not throw if removing non-existent handler', () => {
