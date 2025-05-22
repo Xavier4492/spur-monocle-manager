@@ -96,18 +96,18 @@ export default class Monocle {
   }
 
   /**
-   * Refresh and retrieve the latest Monocle bundle (JWT string),
+   * Refresh and retrieve the latest Monocle assessment (JWT string),
    * retrying up to `retries` times if the assessment comes back empty.
    *
    * @param retries   Number of attempts (default: 3)
    * @param delayMs   Delay between attempts in milliseconds (default: 500)
-   * @returns         The Monocle bundle (JWT) as a string
-   * @throws          Error if run on the server side or if no bundle is returned
+   * @returns         The Monocle assessment (JWT) as a string
+   * @throws          Error if run on the server side or if no assessment is returned
    *                   after all retries, or if refresh/getAssessment throws.
    */
-  public async getBundle(retries = 3, delayMs = 500): Promise<string> {
+  public async getAssessment(retries = 3, delayMs = 500): Promise<string> {
     if (typeof window === 'undefined') {
-      throw new Error('[Monocle] getBundle() is not available on the server side')
+      throw new Error('[Monocle] getAssessment() is not available on the server side')
     }
 
     // Ensure the script is injected and MCL is defined
@@ -118,21 +118,21 @@ export default class Monocle {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         await mcl.refresh()
-        const bundle = (await mcl.getAssessment()) as string | null
-        if (bundle) {
-          this._dispatch('monocle-success', bundle)
-          return bundle
+        const assessment = (await mcl.getAssessment()) as string | null
+        if (assessment) {
+          this._dispatch('monocle-success', assessment)
+          return assessment
         }
       } catch (err: any) {
         // Underlying error (network, parsing, etc.)
         this._dispatch('monocle-error', err)
         throw err
       }
-      // No bundle yet: wait before retrying
+      // No assessment yet: wait before retrying
       await new Promise((res) => setTimeout(res, delayMs))
     }
 
-    // All retries exhausted, still no bundle
+    // All retries exhausted, still no assessment
     const error = new Error('[Monocle] No data returned after retries')
     this._dispatch('monocle-error', error)
     throw error

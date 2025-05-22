@@ -39,14 +39,14 @@ async function main() {
 
   // Listen for events
   monocle.on('monocle-success', (data) => {
-    console.log('Bundle data:', data)
+    console.log('Assessment data:', data)
   })
 
-  // Retrieve the bundle and trigger the 'monocle-success' event
-  const bundle = await monocle.getBundle()
-  console.log(bundle)
+  // Retrieve the assessment and trigger the 'monocle-success' event
+  const assessment = await monocle.getAssessment()
+  console.log(assessment)
 
-  const bundle2 = await monocle.getBundle() // you can call it again to get fresh bundle
+  const assessment2 = await monocle.getAssessment() // you can call it again to get fresh assessment
 
   // Clean up when done (optional)
   // monocle.destroy()
@@ -70,14 +70,14 @@ Injects the Monocle script into the page and initializes global callbacks.
 
 - Calling `init()` multiple times is safe: it returns the same promise and logs a warning.
 
-### `getBundle(): Promise<string>`
+### `getAssessment(): Promise<string>`
 
-Refreshes Monocle data and returns a signed JWT bundle as a `string`.
+Refreshes Monocle data and returns a signed JWT assessment as a `string`.
 
 - Automatically calls `init()` if not already initialized.
-- Triggers a `'monocle-success'` event with the bundle content on success.
-- Triggers a `'monocle-error'` event on failure (e.g., if no bundle is returned).
-- ❗ **Throws** if called in server-side context or if the bundle is unavailable.
+- Triggers a `'monocle-success'` event with the assessment content on success.
+- Triggers a `'monocle-error'` event on failure (e.g., if no assessment is returned).
+- ❗ **Throws** if called in server-side context or if the assessment is unavailable.
 
 ### `on(event: MonocleEvents, handler: (detail: any) => void): void`
 
@@ -104,8 +104,8 @@ The Monocle class dispatches events through an internal `EventTarget`. You can s
 
 | Event Name        | Description                                                                 |
 | ----------------- | --------------------------------------------------------------------------- |
-| `monocle-success` | Emitted when the Monocle bundle is successfully retrieved. Payload: string. |
-| `monocle-error`   | Emitted when there is an error loading or fetching the bundle.              |
+| `monocle-success` | Emitted when the Monocle assessment is successfully retrieved. Payload: string. |
+| `monocle-error`   | Emitted when there is an error loading or fetching the assessment.              |
 | `monocle-onload`  | Emitted once the Monocle script has been successfully loaded.               |
 
 ## Tests & CI

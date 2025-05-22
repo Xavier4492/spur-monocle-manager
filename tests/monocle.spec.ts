@@ -33,7 +33,7 @@ describe('Monocle', () => {
     // Simulated global MCL object
     ;(globalThis as any).MCL = {
       refresh: vi.fn().mockResolvedValue(undefined),
-      getBundle: vi.fn().mockReturnValue('fake-jwt-token'),
+      getAssessment: vi.fn().mockReturnValue('fake-jwt-token'),
     }
   })
 
@@ -98,21 +98,21 @@ describe('Monocle', () => {
     expect(dispatchSpy).toHaveBeenCalledWith('monocle-onload', undefined)
   })
 
-  it('getBundle(): calls _dispatch on error and rejects', async () => {
+  it('getAssessment(): calls _dispatch on error and rejects', async () => {
     const m = new Monocle({ token: 'x' })
     vi.spyOn(m, 'init').mockResolvedValue()
     // Case: refresh rejects
     ;(globalThis as any).MCL.refresh = vi.fn().mockRejectedValue(new Error('fail-refresh'))
     const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
 
-    await expect(m.getBundle()).rejects.toThrow('fail-refresh')
+    await expect(m.getAssessment()).rejects.toThrow('fail-refresh')
     expect(dispatchSpy).toHaveBeenCalledWith('monocle-error', expect.any(Error))
 
-    // Case: getBundle() returns null
+    // Case: getAssessment() returns null
     ;(globalThis as any).MCL.refresh = vi.fn().mockResolvedValue(undefined)
-    ;(globalThis as any).MCL.getBundle = vi.fn().mockReturnValue(null)
+    ;(globalThis as any).MCL.getAssessment = vi.fn().mockReturnValue(null)
 
-    await expect(m.getBundle()).rejects.toThrow('[Monocle] No data returned')
+    await expect(m.getAssessment()).rejects.toThrow('[Monocle] No data returned')
     expect(dispatchSpy).toHaveBeenCalledWith('monocle-error', expect.any(Error))
   })
 
@@ -193,10 +193,10 @@ describe('Server-side fallback (window undefined)', () => {
     await expect(m.init()).rejects.toThrow('[Monocle] init() not supported in SSR')
   })
 
-  it('getBundle() throws when window is undefined', async () => {
+  it('getAssessment() throws when window is undefined', async () => {
     const m = new Monocle({ token: 't' })
-    await expect(m.getBundle()).rejects.toThrow(
-      '[Monocle] getBundle() is not available on the server side',
+    await expect(m.getAssessment()).rejects.toThrow(
+      '[Monocle] getAssessment() is not available on the server side',
     )
   })
 })
@@ -209,7 +209,10 @@ describe('init(): idempotence', () => {
     fakeScript = { addEventListener: vi.fn(), async: false, defer: false, src: '' }
     vi.spyOn(document, 'createElement').mockImplementation(() => fakeScript as any)
     vi.spyOn(document.head, 'appendChild').mockImplementation(() => fakeScript as any)
-    ;(globalThis as any).MCL = { refresh: vi.fn().mockResolvedValue(undefined), getBundle: vi.fn() }
+    ;(globalThis as any).MCL = {
+      refresh: vi.fn().mockResolvedValue(undefined),
+      getAssessment: vi.fn(),
+    }
   })
 
   it('returns the same promise if called twice', async () => {
