@@ -2,6 +2,16 @@
 
 All notable changes...
 
+## [2.0.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.3.1...v2.0.0) (2025-05-22)
+
+### ⚠ BREAKING CHANGES
+
+* upgrade version
+
+### Features
+
+* upgrade version ([c791b49](https://github.com/Xavier4492/spur-monocle-manager/commit/c791b49d8159e3b42dd08c124fcfc25f5b3e96c5))
+
 ## [1.3.1](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.3.0...v1.3.1) (2025-05-22)
 
 ## [1.3.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.2.5...v1.3.0) (2025-05-22)
