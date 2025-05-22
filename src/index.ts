@@ -105,7 +105,7 @@ export default class Monocle {
    * @throws          Error if run on the server side or if no assessment is returned
    *                   after all retries, or if refresh/getAssessment throws.
    */
-  public async getAssessment(retries = 3, delayMs = 500): Promise<string> {
+  public async getAssessment(retries = 5, delayMs = 500): Promise<string> {
     if (typeof window === 'undefined') {
       throw new Error('[Monocle] getAssessment() is not available on the server side')
     }
