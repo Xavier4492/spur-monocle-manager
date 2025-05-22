@@ -54,9 +54,8 @@ export default class Monocle {
 
   /**
    * Load the Monocle script into the document.
-   * Returns a promise that resolves when the script is loaded or rejects on failure.
+   * Returns a promise that resolves when the script is loaded or rejects on failure or timeout.
    */
-  // FIXME:: Add Timeout if script not loaded after delayMs
   public init(): Promise<void> {
     if (typeof window === 'undefined') {
       return Promise.reject(new Error('[Monocle] init() not supported in SSR'))
