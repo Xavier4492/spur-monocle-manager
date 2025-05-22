@@ -79,17 +79,14 @@ Injects the Monocle script into the page and initializes global callbacks.
 
 - Calling `init()` multiple times is safe: it returns the same promise and logs a warning.
 
-### `getAssessment(retries?: number, delayMs?: number): Promise<string>`
+### `getAssessment(): Promise<string>`
 
 Refreshes Monocle data and returns a signed JWT assessment as a `string`.
 
-- **Parameters:**
-  - `retries: number` — Optional. Number of retry attempts if no assessment is returned. Default is `5`.
-  - `delayMs: number` — Optional. Delay in milliseconds between retry attempts. Default is `500` ms.
 - Automatically calls `init()` if not already initialized.
 - Triggers a `'assessment'` event with the assessment content on success.
 - Triggers a `'error'` event on failure (e.g., if no assessment is returned).
-- ❗ **Throws** if called in server-side context or if the assessment is unavailable after all retries.
+- ❗ **Throws** if called in server-side context or if the assessment is unavailable.
 
 ### `on(event: MonocleEvents, handler: (detail: any) => void): void`
 

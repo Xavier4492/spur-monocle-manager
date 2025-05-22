@@ -46,13 +46,18 @@ describe('Monocle', () => {
     consoleWarnSpy.mockRestore()
   })
 
-  it('throws if no token is provided', () => {
+  it('constructor throws if no token is provided', () => {
     expect(() => new Monocle({ token: '' })).toThrow('[Monocle] No token provided')
   })
 
   it('constructor logs debug enabled when debug flag is true', () => {
     new Monocle({ token: 'tok', debug: true })
     expect(consoleWarnSpy).toHaveBeenCalledWith('[Monocle] Debug mode enabled')
+  })
+
+  it('constructor uses default initTimeout=5000 when none passed', () => {
+    const m = new Monocle({ token: 'tok' })
+    expect((m as any).initTimeout).toBe(5000)
   })
 
   it('init(): injects the script and resolves', async () => {
@@ -127,25 +132,66 @@ describe('Monocle', () => {
     expect(p2).toBe(p1)
   })
 
-  it('getAssessment(): calls _dispatch on error and rejects', async () => {
-    const m = new Monocle({ token: 'x' })
-    // Stub init to set up _monocle
-    vi.spyOn(m, 'init').mockImplementation(async () => {
-      ;(m as any)._monocle = (globalThis as any).MCL
-    })
-    // Case: refresh rejects
-    ;(globalThis as any).MCL.refresh = vi.fn().mockRejectedValue(new Error('fail-refresh'))
-    const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
+  it('init(): rejects after timeout when no assessment received', async () => {
+    vi.useFakeTimers()
+    const m = new Monocle({ token: 'tok', initTimeout: 1000 })
+    const p = m.init()
+    // avant le timeout, la promesse reste pendante
+    vi.advanceTimersByTime(999)
+    await Promise.resolve() // laisse passer la boucle d’événements
+    // on déclenche enfin le timeout
+    vi.advanceTimersByTime(1)
+    await expect(p).rejects.toThrow('[Monocle] init() timeout after 1000 ms')
+    vi.useRealTimers()
+  })
 
-    await expect(m.getAssessment()).rejects.toThrow('fail-refresh')
-    expect(dispatchSpy).toHaveBeenCalledWith('error', expect.any(Error))
+  it('init(): sets onassessment and onbundle attributes on script', () => {
+    const m = new Monocle({ token: 'tok' })
+    m.init().catch(() => {})
+    expect(fakeScript.setAttribute).toHaveBeenCalledWith('onassessment', '_onAssessment')
+    expect(fakeScript.setAttribute).toHaveBeenCalledWith('onbundle', '_onAssessment')
+  })
 
-    // Case: getAssessment() returns null
-    ;(globalThis as any).MCL.refresh = vi.fn().mockResolvedValue(undefined)
-    ;(globalThis as any).MCL.getAssessment = vi.fn().mockReturnValue(null)
+  it('init(): dispatches "load" via EventTarget on script.load event', () => {
+    const m = new Monocle({ token: 'tok' })
+    const handler = vi.fn()
+    m.on('load', handler)
 
-    await expect(m.getAssessment()).rejects.toThrow('[Monocle] No data returned')
-    expect(dispatchSpy).toHaveBeenCalledWith('error', expect.any(Error))
+    m.init().catch(() => {})
+    // simule l'écouteur de 'load'
+    const loadCall = fakeScript.addEventListener.mock.calls.find(([e]: [string]) => e === 'load')!
+    const loadCb = loadCall[1] as () => void
+
+    // Avant, handler ne doit pas avoir été appelé
+    expect(handler).not.toHaveBeenCalled()
+
+    // on déclenche load
+    loadCb()
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it('init(): rejects after default timeout=5000 ms (fake timers)', async () => {
+    vi.useFakeTimers()
+    const m = new Monocle({ token: 'tok' }) // initTimeout by défaut = 5000
+    const p = m.init()
+
+    vi.advanceTimersByTime(5000)
+    await expect(p).rejects.toThrow('[Monocle] init() timeout after 5000 ms')
+    vi.useRealTimers()
+  })
+
+  it('init(): removes script on timeout cleanup', async () => {
+    vi.useFakeTimers()
+    const m = new Monocle({ token: 'tok', initTimeout: 1000 })
+    const fakeScript = { parentNode: {} } as any
+    ;(m as any)._script = fakeScript
+    const removeSpy = vi.spyOn(document.head, 'removeChild').mockImplementation(() => fakeScript)
+    const p = m.init()
+    vi.advanceTimersByTime(1000)
+    await Promise.resolve()
+    await expect(p).rejects.toThrow('[Monocle] init() timeout after 1000 ms')
+    expect(removeSpy).toHaveBeenCalledWith(fakeScript)
+    vi.useRealTimers()
   })
 
   it('on/off correctly handles events', () => {
@@ -168,6 +214,89 @@ describe('Monocle', () => {
     m.off('assessment', handler)
     ;(m as any)._dispatch('assessment', 456)
     expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it('on(): logs warning when registering same handler twice in debug mode', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const m = new Monocle({ token: 't', debug: true })
+    const handler = () => {}
+    m.on('load', handler)
+    m.on('load', handler)
+    expect(warnSpy).toHaveBeenCalledWith('[Monocle] handler already registered for load')
+    warnSpy.mockRestore()
+  })
+
+  it('off(): removes specified handler but keeps others', () => {
+    const m = new Monocle({ token: 't2' })
+    const handler1 = vi.fn()
+    const handler2 = vi.fn()
+    m.on('assessment', handler1)
+    m.on('assessment', handler2)
+    m.off('assessment', handler1)
+    ;(m as any)._dispatch('assessment', 'data')
+    expect(handler1).not.toHaveBeenCalled()
+    expect(handler2).toHaveBeenCalledWith('data')
+    expect((m as any)._handlers.get('assessment')!.length).toBe(1)
+  })
+
+  it('off() removes handler entry entirely when last callback removed', () => {
+    const m = new Monocle({ token: 'tok' })
+    const h = () => {}
+    m.on('assessment', h)
+    expect((m as any)._handlers.has('assessment')).toBe(true)
+
+    m.off('assessment', h)
+    expect((m as any)._handlers.has('assessment')).toBe(false)
+  })
+
+  it('getAssessment(): calls _dispatch on error and rejects', async () => {
+    const m = new Monocle({ token: 'x' })
+    // Stub init to set up _monocle
+    vi.spyOn(m, 'init').mockImplementation(async () => {
+      ;(m as any)._monocle = (globalThis as any).MCL
+    })
+    // Case: refresh rejects
+    ;(globalThis as any).MCL.refresh = vi.fn().mockRejectedValue(new Error('fail-refresh'))
+    const dispatchSpy = vi.spyOn(m as any, '_dispatch').mockImplementation(() => {})
+
+    await expect(m.getAssessment()).rejects.toThrow('fail-refresh')
+    expect(dispatchSpy).toHaveBeenCalledWith('error', expect.any(Error))
+
+    // Case: getAssessment() returns null
+    ;(globalThis as any).MCL.refresh = vi.fn().mockResolvedValue(undefined)
+    ;(globalThis as any).MCL.getAssessment = vi.fn().mockReturnValue(null)
+
+    await expect(m.getAssessment()).rejects.toThrow('[Monocle] No data returned')
+    expect(dispatchSpy).toHaveBeenCalledWith('error', expect.any(Error))
+  })
+
+  it('getAssessment(): returns assessment when MCL defined', async () => {
+    const m = new Monocle({ token: 'x' })
+    vi.spyOn(m, 'init').mockImplementation(async () => {
+      ;(m as any)._monocle = (globalThis as any).MCL
+    })
+    const result = await m.getAssessment()
+    expect(result).toBe('fake-jwt-token')
+  })
+
+  it('getAssessment(): throws when MCL is not defined after init', async () => {
+    const m = new Monocle({ token: 'x' })
+    vi.spyOn(m, 'init').mockResolvedValue()
+    await expect(m.getAssessment()).rejects.toThrow('[Monocle] MCL is not defined')
+  })
+
+  it('destroy(): removes all registered event listeners', () => {
+    const m = new Monocle({ token: 't3' })
+    const fakeScriptParent = { removeChild: vi.fn() }
+    ;(m as any)._script = { parentNode: fakeScriptParent } as any
+    ;(m as any)._initialized = true
+    ;(m as any)._readyPromise = Promise.resolve()
+    vi.spyOn(document.head, 'querySelectorAll').mockReturnValue([] as any)
+    const handler = () => {}
+    m.on('error', handler)
+    const removeListenerSpy = vi.spyOn((m as any)._eventTarget!, 'removeEventListener')
+    m.destroy()
+    expect(removeListenerSpy).toHaveBeenCalled()
   })
 
   it('destroy(): cleans up DOM, global callbacks, and internal state', () => {

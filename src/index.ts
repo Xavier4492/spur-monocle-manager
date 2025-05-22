@@ -97,7 +97,10 @@ export default class Monocle {
 
       // Script injection
       const script = document.createElement('script') as HTMLScriptElement
-      this._script = script
+      // Only assign if not pre-set (allows tests to inject stub)
+      if (!this._script) {
+        this._script = script
+      }
       script.id = '_mcl'
       script.async = true
       script.defer = true
@@ -121,7 +124,7 @@ export default class Monocle {
         this._initialized = false
         this._readyPromise = null
 
-        let err = new Error('[Monocle] Failed to load script')
+        const err = new Error('[Monocle] Failed to load script')
         this._dispatch('error', err)
         reject(err)
       })
@@ -136,16 +139,11 @@ export default class Monocle {
   }
 
   /**
-   * Refresh and retrieve the latest Monocle assessment (JWT string),
-   * retrying up to `retries` times if the assessment comes back empty.
-   *
-   * @param retries   Number of attempts (default: 3)
-   * @param delayMs   Delay between attempts in milliseconds (default: 500)
-   * @returns         The Monocle assessment (JWT) as a string
-   * @throws          Error if run on the server side or if no assessment is returned
-   *                   after all retries, or if refresh/getAssessment throws.
+   * Returns the assessment JWT from Monocle.
+   * This method should only be called after the script is loaded and initialized.
+   * @throws Error if called on the server side or if no data is returned
    */
-  public async getAssessment(retries = 5, delayMs = 500): Promise<string> {
+  public async getAssessment(): Promise<string> {
     if (typeof window === 'undefined') {
       throw new Error('[Monocle] getAssessment() is not available on the server side')
     }
@@ -157,26 +155,18 @@ export default class Monocle {
       throw new Error('[Monocle] MCL is not defined')
     }
 
-    // TODO: remove loop, it's not needed since init() waits for onassessment
-    // Try to refresh + getAssessment up to `retries` times
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        await this._monocle.refresh()
-        const assessment = (await this._monocle.getAssessment()) as string | null
-        if (assessment) {
-          return assessment
-        }
-      } catch (err: any) {
-        // Underlying error (network, parsing, etc.)
-        this._dispatch('error', err)
-        throw err
+    try {
+      await this._monocle.refresh()
+      const assessment = (await this._monocle.getAssessment()) as string | null
+      if (assessment) {
+        return assessment
       }
-      // No assessment yet: wait before retrying
-      await new Promise((res) => setTimeout(res, delayMs))
+    } catch (err: any) {
+      this._dispatch('error', err)
+      throw err
     }
 
-    // All retries exhausted, still no assessment
-    const error = new Error('[Monocle] No data returned after retries')
+    const error = new Error('[Monocle] No data returned')
     this._dispatch('error', error)
     throw error
   }
