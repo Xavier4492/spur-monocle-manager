@@ -2,6 +2,12 @@
 
 All notable changes...
 
+## [3.1.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v3.0.0...v3.1.0) (2025-05-22)
+
+### Features
+
+* add initTimeout option for Monocle script loading ([7d969cf](https://github.com/Xavier4492/spur-monocle-manager/commit/7d969cf7874cfc8d183ff6417dc2ea0a0b22ff1a))
+
 ## [3.0.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v2.0.0...v3.0.0) (2025-05-22)
 
 ### ⚠ BREAKING CHANGES
