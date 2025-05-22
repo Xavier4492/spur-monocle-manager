@@ -2,6 +2,17 @@
 
 All notable changes...
 
+## [3.0.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v2.0.0...v3.0.0) (2025-05-22)
+
+### ⚠ BREAKING CHANGES
+
+* refactor events
+
+### Bug Fixes
+
+* refactor events ([8a16133](https://github.com/Xavier4492/spur-monocle-manager/commit/8a16133954a3d3c1afd6a7c62aea3e39b4ebd7de))
+* remove console log for Monocle assessment ([60c306f](https://github.com/Xavier4492/spur-monocle-manager/commit/60c306fe8e59293efccda8e55d60dc92ad6535ed))
+
 ## [2.0.0](https://github.com/Xavier4492/spur-monocle-manager/compare/v1.3.1...v2.0.0) (2025-05-22)
 
 ### ⚠ BREAKING CHANGES
