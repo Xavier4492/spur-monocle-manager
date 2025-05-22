@@ -1,11 +1,18 @@
 # spur-monocle-manager
 
+> **Note:** This is **not** an official package. For the official Monocle documentation, please visit: [https://docs.spur.us/monocle](https://docs.spur.us/monocle)
+
 [![CI](https://github.com/Xavier4492/spur-monocle-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/Xavier4492/spur-monocle-manager/actions/workflows/ci.yml)
 [![Release](https://github.com/Xavier4492/spur-monocle-manager/actions/workflows/release.yml/badge.svg)](https://github.com/Xavier4492/spur-monocle-manager/actions/workflows/release.yml)
 [![npm version](https://img.shields.io/npm/v/spur-monocle-manager.svg)](https://www.npmjs.com/package/spur-monocle-manager)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **spur-monocle-manager** is a lightweight TypeScript wrapper for loading and interacting with Spur's Monocle SDK.
+
+Key Features of this SDK:
+
+- **Flexible loading:** Allows you to manually call `init()` at any point (e.g., page load) or automatically inject the script on-demand when you call `getAssessment()` (e.g., form submission).
+- **Emits lifecycle events:** Provides hooks (`monocle-onload`, `monocle-success`, `monocle-error`) for each stage of loading and fetching.
 
 ## Table of Contents
 
