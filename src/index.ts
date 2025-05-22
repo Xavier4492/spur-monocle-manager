@@ -4,6 +4,7 @@ export type MonocleEvents = 'monocle-success' | 'monocle-error' | 'monocle-onloa
 
 export interface MonocleOptions {
   token: string // Authentication token for Monocle API
+  debug?: boolean // Optional debug flag for logging
 }
 
 /**
@@ -19,6 +20,7 @@ export default class Monocle {
   private _monocle: any = null // Global MCL object once loaded
   private _eventTarget: EventTarget | null = null // EventTarget for custom events
   private _handlers = new Map<string, EventListener>() // Stored event handlers for off()
+  private _debug: boolean // Debug mode flag
 
   /**
    * @param options Configuration options, requiring a valid token
@@ -29,6 +31,10 @@ export default class Monocle {
       throw new Error('[Monocle] No token provided')
     }
     this.token = options.token
+    if (options.debug) {
+      console.warn('[Monocle] Debug mode enabled')
+    }
+    this._debug = options.debug || false
   }
 
   /**
@@ -49,7 +55,9 @@ export default class Monocle {
 
     // If already initialized, return the existing promise
     if (this._initialized) {
-      console.warn('[Monocle] already initialized, init() ignored')
+      if (this._debug) {
+        console.warn('[Monocle] already initialized, init() ignored')
+      }
       // To share the same loading promise:
       return this._readyPromise as Promise<void>
     }

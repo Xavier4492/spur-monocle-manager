@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Monocle from '../src/index'
 
 const FAKE_URL = 'https://mcl.spur.us/d/mcl.js'
@@ -7,11 +7,15 @@ const FAKE_URL = 'https://mcl.spur.us/d/mcl.js'
 describe('Monocle', () => {
   let fakeScript: any
   let appendSpy: ReturnType<typeof vi.spyOn>
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     // Reset the DOM
     document.head.innerHTML = ''
     vi.resetAllMocks()
+
+    // Spy on console.warn for debug logs
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     // Create a fake <script>
     fakeScript = {
@@ -37,8 +41,17 @@ describe('Monocle', () => {
     }
   })
 
+  afterEach(() => {
+    consoleWarnSpy.mockRestore()
+  })
+
   it('throws if no token is provided', () => {
     expect(() => new Monocle({ token: '' })).toThrow('[Monocle] No token provided')
+  })
+
+  it('constructor logs debug enabled when debug flag is true', () => {
+    new Monocle({ token: 'tok', debug: true })
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[Monocle] Debug mode enabled')
   })
 
   it('init(): injects the script and resolves', async () => {
@@ -79,6 +92,22 @@ describe('Monocle', () => {
     expect(removeSpy).toHaveBeenCalledWith(fakeScript as any)
     expect((m as any)._initialized).toBe(false)
     expect((m as any)._readyPromise).toBeNull()
+  })
+
+  it('init(): logs idempotent warning when called twice in debug mode', async () => {
+    const m = new Monocle({ token: 'abc', debug: true })
+    // First init
+    const p1 = m.init()
+    // Trigger load
+    const loadCall = fakeScript.addEventListener.mock.calls.find(([e]: [string]) => e === 'load')!
+    const loadCb = loadCall[1] as () => void
+    loadCb()
+    await p1
+
+    // Second init should warn
+    const p2 = m.init()
+    expect(consoleWarnSpy).toHaveBeenCalledWith('[Monocle] already initialized, init() ignored')
+    expect(p2).toBe(p1)
   })
 
   it('Global callbacks correctly call _dispatch with the right detail', () => {
@@ -173,80 +202,82 @@ describe('Monocle', () => {
     expect((window as any).monocleOnloadCallback).toBeUndefined()
     expect((window as any).MCL).toBeUndefined()
   })
-})
 
-describe('Server-side fallback (window undefined)', () => {
-  let originalWindow: any
+  describe('Server-side fallback (window undefined)', () => {
+    let originalWindow: any
 
-  beforeAll(() => {
-    // Simule un environnement sans window
-    originalWindow = (globalThis as any).window
-    delete (globalThis as any).window
-  })
-  afterAll(() => {
-    // Restaure window
-    ;(globalThis as any).window = originalWindow
-  })
+    beforeAll(() => {
+      // Simule un environnement sans window
+      originalWindow = (globalThis as any).window
+      delete (globalThis as any).window
+    })
+    afterAll(() => {
+      // Restaure window
+      ;(globalThis as any).window = originalWindow
+    })
 
-  it('init() rejects when window is undefined', async () => {
-    const m = new Monocle({ token: 't' })
-    await expect(m.init()).rejects.toThrow('[Monocle] init() not supported in SSR')
-  })
+    it('init() rejects when window is undefined', async () => {
+      const m = new Monocle({ token: 't' })
+      await expect(m.init()).rejects.toThrow('[Monocle] init() not supported in SSR')
+    })
 
-  it('getAssessment() throws when window is undefined', async () => {
-    const m = new Monocle({ token: 't' })
-    await expect(m.getAssessment()).rejects.toThrow(
-      '[Monocle] getAssessment() is not available on the server side',
-    )
-  })
-})
-
-describe('init(): idempotence', () => {
-  let fakeScript: any
-
-  beforeEach(() => {
-    document.head.innerHTML = ''
-    fakeScript = { addEventListener: vi.fn(), async: false, defer: false, src: '' }
-    vi.spyOn(document, 'createElement').mockImplementation(() => fakeScript as any)
-    vi.spyOn(document.head, 'appendChild').mockImplementation(() => fakeScript as any)
-    ;(globalThis as any).MCL = {
-      refresh: vi.fn().mockResolvedValue(undefined),
-      getAssessment: vi.fn(),
-    }
+    it('getAssessment() throws when window is undefined', async () => {
+      const m = new Monocle({ token: 't' })
+      await expect(m.getAssessment()).rejects.toThrow(
+        '[Monocle] getAssessment() is not available on the server side',
+      )
+    })
   })
 
-  it('returns the same promise if called twice', async () => {
-    const m = new Monocle({ token: 'xyz' })
-    const p1 = m.init()
-    const loadCall = fakeScript.addEventListener.mock.calls.find(([e]: [string]) => e === 'load')!
-    const loadCb = loadCall[1] as () => void
-    loadCb()
+  describe('init(): idempotence', () => {
+    let fakeScriptLocal: any
 
-    const p2 = m.init()
-    expect(p2).toBe(p1)
-    await expect(p1).resolves.toBeUndefined()
+    beforeEach(() => {
+      document.head.innerHTML = ''
+      fakeScriptLocal = { addEventListener: vi.fn(), async: false, defer: false, src: '' }
+      vi.spyOn(document, 'createElement').mockImplementation(() => fakeScriptLocal as any)
+      vi.spyOn(document.head, 'appendChild').mockImplementation(() => fakeScriptLocal as any)
+      ;(globalThis as any).MCL = {
+        refresh: vi.fn().mockResolvedValue(undefined),
+        getAssessment: vi.fn(),
+      }
+    })
+
+    it('returns the same promise if called twice', async () => {
+      const m = new Monocle({ token: 'xyz' })
+      const p1 = m.init()
+      const loadCall = fakeScriptLocal.addEventListener.mock.calls.find(
+        ([e]: [string]) => e === 'load',
+      )!
+      const loadCb2 = loadCall[1] as () => void
+      loadCb2()
+
+      const p2 = m.init()
+      expect(p2).toBe(p1)
+      await expect(p1).resolves.toBeUndefined()
+    })
   })
-})
 
-describe('Event registration edge-cases', () => {
-  it('on() calls init() if _eventTarget is null', () => {
-    const m = new Monocle({ token: 'abc' })
-    const initSpy = vi.spyOn(m, 'init').mockResolvedValue()
-    ;(m as any)._eventTarget = null
-    m.on('monocle-success', () => {})
-    expect(initSpy).toHaveBeenCalled()
+  describe('Event registration edge-cases', () => {
+    it('on() calls init() if _eventTarget is null', () => {
+      const m = new Monocle({ token: 'abc' })
+      const initSpy = vi.spyOn(m, 'init').mockResolvedValue()
+      ;(m as any)._eventTarget = null
+      m.on('monocle-success', () => {})
+      expect(initSpy).toHaveBeenCalled()
+    })
+
+    it('off() does not throw if removing non-existent handler', () => {
+      const m = new Monocle({ token: 'abc' })
+      ;(m as any)._eventTarget = new EventTarget()
+      expect(() => m.off('monocle-success', () => {})).not.toThrow()
+    })
   })
 
-  it('off() does not throw if removing non-existent handler', () => {
-    const m = new Monocle({ token: 'abc' })
-    ;(m as any)._eventTarget = new EventTarget()
-    expect(() => m.off('monocle-success', () => {})).not.toThrow()
-  })
-})
-
-describe('destroy(): early return', () => {
-  it('destroy() does nothing if not initialized', () => {
-    const m = new Monocle({ token: 'abc' })
-    expect(() => m.destroy()).not.toThrow()
+  describe('destroy(): early return', () => {
+    it('destroy() does nothing if not initialized', () => {
+      const m = new Monocle({ token: 'abc' })
+      expect(() => m.destroy()).not.toThrow()
+    })
   })
 })

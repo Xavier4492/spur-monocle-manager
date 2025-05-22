@@ -62,6 +62,7 @@ main().catch(console.error)
 Creates a new Monocle loader instance.
 
 - `options.token: string` — Required Monocle authentication token.
+- `options.debug: boolean` — Optional flag to enable debug logging (default: `false`).
 - ❗ **Throws** if no token is provided.
 
 ### `init(): Promise<void>`
