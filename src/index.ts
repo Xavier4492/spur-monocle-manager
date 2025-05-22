@@ -48,7 +48,7 @@ export default class Monocle {
    * Load the Monocle script into the document.
    * Returns a promise that resolves when the script is loaded or rejects on failure.
    */
-  // TODO:: Add Timeout if script not loaded after xxx ms
+  // FIXME:: Add Timeout if script not loaded after xxx ms
   public init(): Promise<void> {
     if (typeof window === 'undefined') {
       return Promise.reject(new Error('[Monocle] init() not supported in SSR'))
@@ -68,11 +68,11 @@ export default class Monocle {
     // Creates and stores the static promise
     this._readyPromise = new Promise((resolve, reject) => {
       this._eventTarget = new EventTarget()
-      // TODO: check if getAsessment give jwt or body data right
       ;(window as any)._onAssessment = (jwt: string) => {
         console.log('Monocle assessment reçu:', jwt)
         this._dispatch('assessment', jwt)
-        resolve() // close init() promise
+        // close init() promise
+        resolve()
       }
 
       const script = document.createElement('script') as HTMLScriptElement
